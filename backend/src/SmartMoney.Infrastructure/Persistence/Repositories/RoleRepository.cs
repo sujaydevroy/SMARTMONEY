@@ -15,13 +15,12 @@ public sealed class RoleRepository : IRoleRepository
         _context = context;
     }
 
-    public async Task<Role?> GetByNameAsync(
-        RoleType roleType,
+    public Task<Role?> GetByNameAsync(
+        RoleType name,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Roles
-            .FirstOrDefaultAsync(
-                x => x.Name == roleType,
-                cancellationToken);
+        return _context.Roles.SingleOrDefaultAsync(
+            role => role.Name == name,
+            cancellationToken);
     }
 }

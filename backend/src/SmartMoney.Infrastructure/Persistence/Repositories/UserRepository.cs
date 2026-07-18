@@ -14,20 +14,39 @@ public sealed class UserRepository : IUserRepository
         _context = context;
     }
 
-    public async Task<bool> ExistsByEmailAsync(
+    public Task<bool> ExistsByEmailAsync(
         string email,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Users
-            .AnyAsync(x => x.Email == email, cancellationToken);
+        string normalizedEmail = email.Trim().ToLowerInvariant();
+
+        return _context.Users.AnyAsync(
+            user => user.Email == normalizedEmail,
+            cancellationToken);
     }
 
-    public async Task<bool> ExistsByMobileAsync(
+    public Task<bool> ExistsByMobileAsync(
         string mobileNumber,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Users
-            .AnyAsync(x => x.MobileNumber == mobileNumber, cancellationToken);
+        string normalizedMobile = mobileNumber.Trim();
+
+        return _context.Users.AnyAsync(
+            user => user.MobileNumber == normalizedMobile,
+            cancellationToken);
+    }
+
+    public Task<User?> GetByEmailAsync(
+        string email,
+        CancellationToken cancellationToken = default)
+    {
+        string normalizedEmail = email.Trim().ToLowerInvariant();
+
+        return _context.Users
+            .Include(user => user.Role)
+            .SingleOrDefaultAsync(
+                user => user.Email == normalizedEmail,
+                cancellationToken);
     }
 
     public async Task AddAsync(
@@ -36,6 +55,4 @@ public sealed class UserRepository : IUserRepository
     {
         await _context.Users.AddAsync(user, cancellationToken);
     }
-
-    
 }

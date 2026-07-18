@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace SmartMoney.Application.Abstractions.Authentication;
 
-namespace SmartMoney.Application.Abstractions.Authentication
+public interface IPasswordHasher
 {
-    public class IPasswordHasher
-    {
-    }
+    string Hash(string password);
+
+    bool Verify(
+        string password,
+        string passwordHash);
 }

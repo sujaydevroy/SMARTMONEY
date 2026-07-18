@@ -30,15 +30,40 @@ public class User : BaseEntity
     }
 
     public User(
-    string fullName,
-    string email,
-    string mobileNumber,
-    string passwordHash,
-    Guid roleId)
+        string fullName,
+        string email,
+        string mobileNumber,
+        string passwordHash,
+        Guid roleId)
     {
-        FullName = fullName;
-        Email = email;
-        MobileNumber = mobileNumber;
+        if (string.IsNullOrWhiteSpace(fullName))
+            throw new ArgumentException(
+                "Full name is required.",
+                nameof(fullName));
+
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException(
+                "Email is required.",
+                nameof(email));
+
+        if (string.IsNullOrWhiteSpace(mobileNumber))
+            throw new ArgumentException(
+                "Mobile number is required.",
+                nameof(mobileNumber));
+
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new ArgumentException(
+                "Password hash is required.",
+                nameof(passwordHash));
+
+        if (roleId == Guid.Empty)
+            throw new ArgumentException(
+                "Role is required.",
+                nameof(roleId));
+
+        FullName = fullName.Trim();
+        Email = email.Trim().ToLowerInvariant();
+        MobileNumber = mobileNumber.Trim();
         PasswordHash = passwordHash;
         RoleId = roleId;
     }
