@@ -1,11 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SmartMoney.Application.Abstractions.Persistence;
 using SmartMoney.Domain.Entities;
 
 namespace SmartMoney.Infrastructure.Persistence.Context;
 
-public sealed class SmartMoneyDbContext : DbContext
+public sealed class SmartMoneyDbContext : DbContext, IUnitOfWork
 {
-    public SmartMoneyDbContext(DbContextOptions<SmartMoneyDbContext> options)
+    public SmartMoneyDbContext(
+        DbContextOptions<SmartMoneyDbContext> options)
         : base(options)
     {
     }
@@ -24,6 +26,7 @@ public sealed class SmartMoneyDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(SmartMoneyDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(SmartMoneyDbContext).Assembly);
     }
 }
