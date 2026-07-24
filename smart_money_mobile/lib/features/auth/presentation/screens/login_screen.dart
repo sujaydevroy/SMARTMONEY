@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-
 import '../../../../app/routes/route_names.dart';
+import '../../data/models/login_request.dart';
+import '../../data/services/auth_api_service.dart';
+import '../../data/services/token_storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,6 +13,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _authApiService = AuthApiService();
+  final _tokenStorageService = TokenStorageService();
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -22,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _authApiService.dispose();
     super.dispose();
   }
 
@@ -66,18 +71,38 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // TODO: Connect login API after SM-106 is complete.
-    await Future<void>.delayed(const Duration(seconds: 1));
+    //Connect login API
+    try {
+      final request = LoginRequest(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
 
-    if (!mounted) return;
+      final response = await _authApiService.login(request);
+      await _tokenStorageService.saveTokens(
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        accessTokenExpiresAt: response.accessTokenExpiresAt,
+      );
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Login form validated successfully')),
-    );
+      setState(() {
+        _isLoading = false;
+      });
+
+      Navigator.pushReplacementNamed(context, RouteNames.dashboard);
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid email or password')),
+      );
+    }
   }
 
   InputDecoration _inputDecoration({

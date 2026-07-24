@@ -1,9 +1,8 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-
 import '../../../../app/routes/route_names.dart';
+import '../../../auth/data/services/auth_session_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -14,6 +13,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   late final VideoPlayerController _videoController;
+  final _authSessionService = AuthSessionService();
 
   Timer? _fallbackTimer;
   bool _hasNavigated = false;
@@ -42,9 +42,15 @@ class _SplashScreenState extends State<SplashScreen> {
       await _videoController.play();
 
       // Safety fallback if completion is not detected.
-      _fallbackTimer = Timer(const Duration(milliseconds: 4200), _openLogin);
+      _fallbackTimer = Timer(
+        const Duration(milliseconds: 4200),
+        _openNextScreen,
+      );
     } catch (_) {
-      _fallbackTimer = Timer(const Duration(milliseconds: 800), _openLogin);
+      _fallbackTimer = Timer(
+        const Duration(milliseconds: 800),
+        _openNextScreen,
+      );
     }
   }
 
@@ -56,17 +62,24 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (duration > Duration.zero &&
         position >= duration - const Duration(milliseconds: 100)) {
-      _openLogin();
+      _openNextScreen();
     }
   }
 
-  void _openLogin() {
+  Future<void> _openNextScreen() async {
     if (!mounted || _hasNavigated) return;
 
     _hasNavigated = true;
     _fallbackTimer?.cancel();
 
-    Navigator.pushReplacementNamed(context, RouteNames.login);
+    final hasValidSession = await _authSessionService.hasValidSession();
+
+    if (!mounted) return;
+
+    Navigator.pushReplacementNamed(
+      context,
+      hasValidSession ? RouteNames.dashboard : RouteNames.login,
+    );
   }
 
   @override

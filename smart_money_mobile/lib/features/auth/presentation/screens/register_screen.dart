@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-
 import '../../../../app/routes/route_names.dart';
+import '../../data/models/register_request.dart';
+import '../../data/services/auth_api_service.dart';
+import '../widgets/otp_verification_dialog.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -11,6 +13,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _authApiService = AuthApiService();
 
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -18,6 +21,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _referralCodeController = TextEditingController();
+
+  String? _emailApiError;
+  String? _phoneApiError;
+  String? _passwordApiError;
+  String? _generalApiError;
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -31,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _referralCodeController.dispose();
+    _authApiService.dispose();
     super.dispose();
   }
 
@@ -61,7 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return 'Enter a valid email address';
     }
 
-    return null;
+    return _emailApiError;
   }
 
   String? _validatePhone(String? value) {
@@ -77,7 +86,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return 'Enter a valid 10-digit phone number';
     }
 
-    return null;
+    return _phoneApiError;
   }
 
   String? _validatePassword(String? value) {
@@ -103,7 +112,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return 'Password must contain a number';
     }
 
-    return null;
+    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) {
+      return 'Password must contain a special character';
+    }
+
+    return _passwordApiError;
+    ;
   }
 
   String? _validateConfirmPassword(String? value) {
@@ -121,6 +135,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _submitRegistration() async {
     FocusScope.of(context).unfocus();
 
+    setState(() {
+      _emailApiError = null;
+      _phoneApiError = null;
+      _passwordApiError = null;
+      _generalApiError = null;
+    });
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -129,20 +150,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isLoading = true;
     });
 
-    // TODO: Connect registration API after SM-106 is complete.
-    await Future<void>.delayed(const Duration(seconds: 1));
+    //Connect registration API
+    try {
+      final request = RegisterRequest(
+        fullName: _fullNameController.text,
+        email: _emailController.text,
+        phoneNumber: _phoneController.text,
+        password: _passwordController.text,
+        referralCode: _referralCodeController.text,
+      );
 
-    if (!mounted) return;
+      final response = await _authApiService.register(request);
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (!mounted) return;
 
-    Navigator.pushReplacementNamed(context, RouteNames.profileSetup);
+      setState(() {
+        _isLoading = false;
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registration form validated successfully')),
-    );
+      final isVerified = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return OtpVerificationDialog(email: response.email);
+        },
+      );
+
+      if (!mounted || isVerified != true) {
+        return;
+      }
+
+      Navigator.pushReplacementNamed(context, RouteNames.profileSetup);
+    } catch (error) {
+      if (!mounted) return;
+
+      final errorText = error.toString().toLowerCase();
+
+      setState(() {
+        _isLoading = false;
+
+        if (errorText.contains('phone')) {
+          _phoneApiError = 'This phone number is already registered.';
+        } else if (errorText.contains('email')) {
+          _emailApiError = 'This email address is already registered.';
+        } else if (errorText.contains('password')) {
+          _passwordApiError = 'Password does not meet the requirements.';
+        } else {
+          _generalApiError = 'Unable to create your account. Please try again.';
+        }
+      });
+
+      _formKey.currentState?.validate();
+    }
   }
 
   @override
