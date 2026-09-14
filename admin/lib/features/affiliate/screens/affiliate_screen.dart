@@ -4,7 +4,8 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/admin_colors.dart';
 import '../../../core/widgets/admin_page_header.dart';
 import '../../../core/widgets/admin_page_scaffold.dart';
-import '../../../core/widgets/admin_table_card.dart';
+import '../../../core/widgets/admin_search_status_bar.dart';
+import '../../../core/widgets/admin_sticky_table.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/empty_view.dart';
 import '../../../core/widgets/error_view.dart';
@@ -41,6 +42,14 @@ class _AffiliateScreenState extends State<AffiliateScreen>
   List<AdminStoreAffiliateMapping> _mappings = [];
   List<AdminStore> _stores = [];
 
+  final _mappingSearchController = TextEditingController();
+  String _mappingSearch = '';
+
+  /// null = no status toggle applied, true = "Active" chip selected, false =
+  /// "Inactive" chip selected. Both filters are applied client-side since
+  /// the full mapping list is already loaded.
+  bool? _mappingStatusFilter;
+
   @override
   void initState() {
     super.initState();
@@ -50,9 +59,58 @@ class _AffiliateScreenState extends State<AffiliateScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _mappingSearchController.dispose();
     _affiliateService.dispose();
     _storeService.dispose();
     super.dispose();
+  }
+
+  List<AdminStoreAffiliateMapping> get _filteredMappings {
+    Iterable<AdminStoreAffiliateMapping> result = _mappings;
+
+    if (_mappingStatusFilter != null) {
+      result = result.where((mapping) => mapping.isActive == _mappingStatusFilter);
+    }
+
+    if (_mappingSearch.isNotEmpty) {
+      final term = _mappingSearch.toLowerCase();
+      result = result.where(
+        (mapping) =>
+            mapping.storeName.toLowerCase().contains(term) ||
+            mapping.affiliateNetworkName.toLowerCase().contains(term) ||
+            mapping.externalMerchantId.toLowerCase().contains(term),
+      );
+    }
+
+    return result.toList();
+  }
+
+  void _onMappingSearchChanged(String value) {
+    setState(() => _mappingSearch = value.trim());
+  }
+
+  void _clearMappingSearch() {
+    _mappingSearchController.clear();
+    setState(() => _mappingSearch = '');
+  }
+
+  /// Tapping a selected chip clears the filter back to "all"; tapping the
+  /// other chip switches straight over.
+  void _toggleMappingStatusFilter(bool value) {
+    setState(() {
+      _mappingStatusFilter = _mappingStatusFilter == value ? null : value;
+    });
+  }
+
+  String _mappingEmptyMessage() {
+    final statusWord = switch (_mappingStatusFilter) {
+      true => 'active ',
+      false => 'inactive ',
+      null => '',
+    };
+
+    if (_mappingSearch.isEmpty) return 'No ${statusWord}store mappings found.';
+    return 'No ${statusWord}store mappings match "$_mappingSearch".';
   }
 
   Future<void> _load() async {
@@ -220,32 +278,32 @@ class _AffiliateScreenState extends State<AffiliateScreen>
           const EmptyView(message: 'No affiliate networks yet.')
         else
           Expanded(
-            child: AdminTableCard(
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Name')),
-                  DataColumn(label: Text('Code')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('')),
-                ],
-                rows: _networks
-                    .map(
-                      (network) => DataRow(
-                        cells: [
-                          DataCell(Text(network.name)),
-                          DataCell(Text(network.code)),
-                          DataCell(StatusBadge.active(network.isActive)),
-                          DataCell(
-                            TextButton(
-                              onPressed: () => _editNetwork(network),
-                              child: const Text('Edit'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    .toList(),
-              ),
+            child: AdminStickyTable(
+              columns: const ['Name', 'Code', 'Status', ''],
+              columnWidths: const [160, 120, 100, 70],
+              columnAlignments: const [
+                Alignment.centerLeft,
+                Alignment.centerLeft,
+                Alignment.center,
+                Alignment.centerLeft,
+              ],
+              itemCount: _networks.length,
+              cellsBuilder: (context, index) {
+                final network = _networks[index];
+
+                return [
+                  Text(network.name),
+                  Text(network.code),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: StatusBadge.active(network.isActive),
+                  ),
+                  TextButton(
+                    onPressed: () => _editNetwork(network),
+                    child: const Text('Edit'),
+                  ),
+                ];
+              },
             ),
           ),
       ],
@@ -253,6 +311,8 @@ class _AffiliateScreenState extends State<AffiliateScreen>
   }
 
   Widget _buildMappingsTab() {
+    final filtered = _filteredMappings;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -265,38 +325,60 @@ class _AffiliateScreenState extends State<AffiliateScreen>
           ),
         ),
         const SizedBox(height: AdminSpacing.md),
+        AdminSearchStatusBar(
+          controller: _mappingSearchController,
+          onChanged: _onMappingSearchChanged,
+          onClear: _clearMappingSearch,
+          statusFilter: _mappingStatusFilter,
+          onStatusToggle: _toggleMappingStatusFilter,
+          hintText: 'Search store, network, merchant id…',
+        ),
+        const SizedBox(height: AdminSpacing.md),
         if (_mappings.isEmpty)
           const EmptyView(message: 'No store mappings yet.')
+        else if (filtered.isEmpty)
+          EmptyView(
+            icon: _mappingSearch.isEmpty
+                ? Icons.inbox_outlined
+                : Icons.search_off_rounded,
+            message: _mappingEmptyMessage(),
+          )
         else
           Expanded(
-            child: AdminTableCard(
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Store')),
-                  DataColumn(label: Text('Network')),
-                  DataColumn(label: Text('External merchant id')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('')),
-                ],
-                rows: _mappings
-                    .map(
-                      (mapping) => DataRow(
-                        cells: [
-                          DataCell(Text(mapping.storeName)),
-                          DataCell(Text(mapping.affiliateNetworkName)),
-                          DataCell(Text(mapping.externalMerchantId)),
-                          DataCell(StatusBadge.active(mapping.isActive)),
-                          DataCell(
-                            TextButton(
-                              onPressed: () => _editMapping(mapping),
-                              child: const Text('Edit'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    .toList(),
-              ),
+            child: AdminStickyTable(
+              columns: const [
+                'Store',
+                'Network',
+                'External merchant id',
+                'Status',
+                '',
+              ],
+              columnWidths: const [160, 140, 200, 100, 70],
+              columnAlignments: const [
+                Alignment.centerLeft,
+                Alignment.centerLeft,
+                Alignment.centerLeft,
+                Alignment.center,
+                Alignment.centerLeft,
+              ],
+              itemCount: filtered.length,
+              cellsBuilder: (context, index) {
+                final mapping = filtered[index];
+
+                return [
+                  Text(mapping.storeName),
+                  Text(mapping.affiliateNetworkName),
+                  Text(mapping.externalMerchantId),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: StatusBadge.active(mapping.isActive),
+                  ),
+                  TextButton(
+                    onPressed: () => _editMapping(mapping),
+                    child: const Text('Edit'),
+                  ),
+                ];
+              },
             ),
           ),
       ],
