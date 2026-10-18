@@ -33,6 +33,8 @@ public sealed class ConversionCashbackProcessor
     private readonly IWalletRepository _walletRepository;
     private readonly IAffiliateClickRepository _clickRepository;
     private readonly IWalletTransactionRepository _walletTransactionRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly ICashbackEventRepository _eventRepository;
 
     public ConversionCashbackProcessor(
         ICashbackRepository cashbackRepository,
@@ -40,7 +42,9 @@ public sealed class ConversionCashbackProcessor
         IStoreRepository storeRepository,
         IWalletRepository walletRepository,
         IAffiliateClickRepository clickRepository,
-        IWalletTransactionRepository walletTransactionRepository)
+        IWalletTransactionRepository walletTransactionRepository,
+        IUserRepository userRepository,
+        ICashbackEventRepository eventRepository)
     {
         _cashbackRepository = cashbackRepository;
         _rateResolver = rateResolver;
@@ -48,6 +52,8 @@ public sealed class ConversionCashbackProcessor
         _walletRepository = walletRepository;
         _clickRepository = clickRepository;
         _walletTransactionRepository = walletTransactionRepository;
+        _userRepository = userRepository;
+        _eventRepository = eventRepository;
     }
 
     /// <summary>
@@ -57,7 +63,8 @@ public sealed class ConversionCashbackProcessor
     /// </summary>
     public async Task ProcessAsync(
         AffiliateConversion conversion,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? previousNetworkStatus = null)
     {
         // Unattributed conversions carry no user to reward. If attribution is
         // repaired later, the next status update re-enters this path.
@@ -68,6 +75,24 @@ public sealed class ConversionCashbackProcessor
 
         var cashback = await _cashbackRepository.GetByConversionIdAsync(
             conversion.Id, cancellationToken);
+
+        // The audit trail records every change in what the network says, once.
+        // A brand-new conversion has no previous status; its first report is
+        // covered by the Created event.
+        if (cashback is not null &&
+            previousNetworkStatus is not null &&
+            !string.Equals(
+                Normalize(previousNetworkStatus),
+                Normalize(conversion.NetworkStatus),
+                StringComparison.Ordinal))
+        {
+            await RecordAsync(
+                cashback,
+                CashbackEventType.NetworkStatusChanged,
+                cashback.Status,
+                conversion.NetworkStatus,
+                cancellationToken);
+        }
 
         switch (Normalize(conversion.NetworkStatus))
         {
@@ -91,7 +116,16 @@ public sealed class ConversionCashbackProcessor
 
                 if (cashback is { Status: CashbackStatus.Pending or CashbackStatus.Confirmed })
                 {
+                    var statusBefore = cashback.Status;
+
                     cashback.FlagForReview();
+
+                    await RecordAsync(
+                        cashback,
+                        CashbackEventType.FlaggedForReview,
+                        statusBefore,
+                        conversion.NetworkStatus,
+                        cancellationToken);
                 }
 
                 break;
@@ -160,6 +194,16 @@ public sealed class ConversionCashbackProcessor
             return null;
         }
 
+        // A deleted account has no one to pay: crediting its wallet would park
+        // money where nobody can ever reach it. Skip silently; the conversion
+        // row itself is still recorded by the caller.
+        var owner = await _userRepository.GetByIdAsync(click.UserId, cancellationToken);
+
+        if (owner is null || owner.Status == UserStatus.Deleted)
+        {
+            return null;
+        }
+
         var wallet = await _walletRepository.GetByUserIdAsync(click.UserId, cancellationToken);
 
         if (wallet is null)
@@ -190,10 +234,39 @@ public sealed class ConversionCashbackProcessor
                 cashback.Id,
                 "Cashback tracked (pending network confirmation).",
                 wallet.AvailableBalance,
-                wallet.PendingBalance),
+                wallet.PendingBalance,
+                wallet.HeldBalance),
+            cancellationToken);
+
+        await RecordAsync(
+            cashback,
+            CashbackEventType.Created,
+            null,
+            conversion.NetworkStatus,
             cancellationToken);
 
         return cashback;
+    }
+
+    /// <summary>Adds one automated (no actor) line to the cashback's audit trail.</summary>
+    private Task RecordAsync(
+        Cashback cashback,
+        CashbackEventType type,
+        CashbackStatus? statusBefore,
+        string networkStatus,
+        CancellationToken cancellationToken)
+    {
+        return _eventRepository.AddAsync(
+            new CashbackEvent(
+                cashback.Id,
+                type,
+                null,
+                statusBefore,
+                cashback.Status,
+                cashback.CashbackAmount,
+                networkStatus,
+                null),
+            cancellationToken);
     }
 
     private static string Normalize(string networkStatus)

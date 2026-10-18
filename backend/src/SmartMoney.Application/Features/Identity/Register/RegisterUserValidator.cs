@@ -1,4 +1,6 @@
-﻿namespace SmartMoney.Application.Features.Identity.Register;
+﻿using SmartMoney.Application.Common;
+
+namespace SmartMoney.Application.Features.Identity.Register;
 
 public sealed class RegisterUserValidator
 {
@@ -14,6 +16,26 @@ public sealed class RegisterUserValidator
         ValidatePhoneNumber(command.PhoneNumber, errors);
         ValidatePassword(command.Password, errors);
         ValidateReferralCode(command.ReferralCode, errors);
+
+        if (!command.AgeConfirmed)
+        {
+            errors.Add("You must confirm that you are 18 years or older.");
+        }
+
+        if (!command.TermsAccepted)
+        {
+            errors.Add(
+                "You must accept the Terms of Service and Privacy Policy.");
+        }
+
+        if (string.IsNullOrWhiteSpace(command.ConsentVersion))
+        {
+            errors.Add("Consent version is required.");
+        }
+        else if (!ConsentPolicy.IsAccepted(command.ConsentVersion))
+        {
+            errors.Add("Consent version is not recognised. Please update the app.");
+        }
 
         return errors;
     }
@@ -119,48 +141,7 @@ public sealed class RegisterUserValidator
         string password,
         ICollection<string> errors)
     {
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            errors.Add("Password is required.");
-            return;
-        }
-
-        if (password.Length < 8)
-        {
-            errors.Add(
-                "Password must contain at least 8 characters.");
-        }
-
-        if (password.Length > 128)
-        {
-            errors.Add(
-                "Password must not exceed 128 characters.");
-        }
-
-        if (!password.Any(char.IsUpper))
-        {
-            errors.Add(
-                "Password must contain at least one uppercase letter.");
-        }
-
-        if (!password.Any(char.IsLower))
-        {
-            errors.Add(
-                "Password must contain at least one lowercase letter.");
-        }
-
-        if (!password.Any(char.IsDigit))
-        {
-            errors.Add(
-                "Password must contain at least one number.");
-        }
-
-        if (!password.Any(
-                character => !char.IsLetterOrDigit(character)))
-        {
-            errors.Add(
-                "Password must contain at least one special character.");
-        }
+        PasswordPolicy.Validate(password, errors);
     }
 
     private static void ValidateReferralCode(

@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/routes/route_names.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/sm_colors.dart';
 import '../../../../core/theme/sm_motion.dart';
 import '../../../../core/theme/sm_radius.dart';
 import '../../../../core/theme/sm_spacing.dart';
 import '../../../../core/widgets/fade_slide_in.dart';
-import '../../../../core/widgets/google_sign_in_button.dart';
 import '../../data/models/login_request.dart';
 import '../../data/services/auth_api_service.dart';
-import '../../data/services/google_auth_service.dart';
 import '../../data/services/token_storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -23,16 +22,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _authApiService = AuthApiService();
   final _tokenStorageService = TokenStorageService();
-  final _googleAuthService = GoogleAuthService();
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
-  bool _isGoogleLoading = false;
 
-  bool get _isBusy => _isLoading || _isGoogleLoading;
+  bool get _isBusy => _isLoading;
 
   @override
   void dispose() {
@@ -85,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final request = LoginRequest(
-        email: _emailController.text,
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -116,57 +113,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          content: Text(
+            error is ApiException
+                ? error.message
+                : 'Something went wrong. Please try again.',
+          ),
         ),
       );
-    }
-  }
-
-  Future<void> _handleGoogleSignIn() async {
-    if (_isBusy) return;
-
-    setState(() {
-      _isGoogleLoading = true;
-    });
-
-    try {
-      final idToken = await _googleAuthService.signInAndGetIdToken();
-      if (idToken == null) {
-        return;
-      }
-
-      final response = await _authApiService.loginWithGoogle(idToken);
-      await _tokenStorageService.saveTokens(
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-        accessTokenExpiresAt: response.accessTokenExpiresAt,
-      );
-
-      if (!mounted) return;
-
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        RouteNames.dashboard,
-        (route) => false,
-      );
-    } on GoogleAuthException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isGoogleLoading = false;
-        });
-      }
     }
   }
 
@@ -385,40 +338,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 isLoading: _isLoading,
                                 onPressed: _isBusy ? null : _submitLogin,
                               ),
-                              const SizedBox(height: SmSpacing.xl),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Divider(
-                                      color: colors.border,
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: SmSpacing.md,
-                                    ),
-                                    child: Text(
-                                      'or',
-                                      style: TextStyle(
-                                        color: colors.textMuted,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Divider(
-                                      color: colors.border,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: SmSpacing.lg),
-                              GoogleSignInButton(
-                                isLoading: _isGoogleLoading,
-                                onPressed: _isBusy
-                                    ? null
-                                    : _handleGoogleSignIn,
-                              ),
                             ],
                           ),
                         ),
@@ -527,8 +446,7 @@ class _SmartMoneyLoginButton extends StatefulWidget {
   final VoidCallback? onPressed;
 
   @override
-  State<_SmartMoneyLoginButton> createState() =>
-      _SmartMoneyLoginButtonState();
+  State<_SmartMoneyLoginButton> createState() => _SmartMoneyLoginButtonState();
 }
 
 class _SmartMoneyLoginButtonState extends State<_SmartMoneyLoginButton> {

@@ -3,8 +3,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartMoney.Api.Storage;
 using SmartMoney.Application.Abstractions.Authentication;
+using SmartMoney.Application.Abstractions.Messaging;
 using SmartMoney.Application.Abstractions.Persistence;
+using SmartMoney.Application.Common;
+using SmartMoney.Application.Contracts.Identity.DeleteAccount;
+using SmartMoney.Application.Features.Identity.DeleteAccount;
 using SmartMoney.Domain.Entities;
+using SmartMoney.Domain.Enums;
 
 namespace SmartMoney.Api.Controllers;
 
@@ -25,20 +30,26 @@ public sealed class ProfileController : ControllerBase
         };
 
     private readonly IUserRepository _userRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
+    private readonly ICommandHandler<DeleteAccountCommand, DeleteAccountResult> _deleteAccountHandler;
 
     public ProfileController(
         IUserRepository userRepository,
+        IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
         IUnitOfWork unitOfWork,
-        IProfilePhotoStorage profilePhotoStorage)
+        IProfilePhotoStorage profilePhotoStorage,
+        ICommandHandler<DeleteAccountCommand, DeleteAccountResult> deleteAccountHandler)
     {
         _userRepository = userRepository;
+        _refreshTokenRepository = refreshTokenRepository;
         _passwordHasher = passwordHasher;
         _unitOfWork = unitOfWork;
         _profilePhotoStorage = profilePhotoStorage;
+        _deleteAccountHandler = deleteAccountHandler;
     }
 
     [HttpGet]
@@ -104,11 +115,14 @@ public sealed class ProfileController : ControllerBase
         [FromBody] ChangeProfilePasswordRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        IReadOnlyCollection<string> passwordErrors =
+            PasswordPolicy.Validate(request.NewPassword);
+
+        if (passwordErrors.Count > 0)
         {
             return BadRequest(new
             {
-                message = "Password is required."
+                message = string.Join(" ", passwordErrors)
             });
         }
 
@@ -122,9 +136,38 @@ public sealed class ProfileController : ControllerBase
             });
         }
 
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) ||
+            user.PasswordHash is null ||
+            !_passwordHasher.Verify(
+                request.CurrentPassword,
+                user.PasswordHash))
+        {
+            // 400, not 401: the mobile client treats 401 as an expired
+            // session and would try to refresh the token.
+            return BadRequest(new
+            {
+                message = "Current password is incorrect."
+            });
+        }
+
+        if (request.NewPassword == request.CurrentPassword)
+        {
+            return BadRequest(new
+            {
+                message = "New password must be different from the current one."
+            });
+        }
+
         string passwordHash = _passwordHasher.Hash(request.NewPassword);
 
         user.ChangePasswordHash(passwordHash);
+
+        // A changed password must lock out anyone holding a stolen session:
+        // every refresh token is revoked, so all devices (this one included)
+        // must sign in again once their short-lived access token lapses.
+        await _refreshTokenRepository.RevokeAllForUserAsync(
+            user.Id,
+            cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -190,6 +233,15 @@ public sealed class ProfileController : ControllerBase
         string? previousProfileImageUrl = user.ProfileImageUrl;
 
         await using Stream stream = photo.OpenReadStream();
+
+        if (!await ImageSignature.MatchesAsync(stream, contentType, cancellationToken))
+        {
+            return BadRequest(new
+            {
+                message = "The file is not a valid JPG, PNG or WebP image."
+            });
+        }
+
         StoredProfilePhoto storedPhoto =
             await _profilePhotoStorage.UploadAsync(
                 stream,
@@ -219,6 +271,59 @@ public sealed class ProfileController : ControllerBase
         return Ok(ProfileResponse.FromUser(user));
     }
 
+    [HttpPost("delete-account")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteAccount(
+        [FromBody] DeleteAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(
+                User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                out Guid userId))
+        {
+            return Unauthorized();
+        }
+
+        DeleteAccountResult result;
+
+        try
+        {
+            result = await _deleteAccountHandler.HandleAsync(
+                new DeleteAccountCommand(userId, request.Password),
+                cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+
+        // The account is already deleted at this point; a storage hiccup
+        // must not turn that into a failed request.
+        try
+        {
+            await _profilePhotoStorage.DeleteByPublicUrlAsync(
+                result.PreviousProfileImageUrl,
+                cancellationToken);
+        }
+        catch
+        {
+        }
+
+        return NoContent();
+    }
+
     private async Task<User?> GetCurrentUserAsync(
         CancellationToken cancellationToken)
     {
@@ -229,13 +334,19 @@ public sealed class ProfileController : ControllerBase
             return null;
         }
 
-        return await _userRepository.GetByIdAsync(id, cancellationToken);
+        User? user = await _userRepository.GetByIdAsync(id, cancellationToken);
+
+        return user is { Status: UserStatus.Deleted } ? null : user;
     }
 }
 
 public sealed record UpdateProfileNameRequest(string Name);
 
-public sealed record ChangeProfilePasswordRequest(string NewPassword);
+public sealed record ChangeProfilePasswordRequest(
+    string CurrentPassword,
+    string NewPassword);
+
+public sealed record DeleteAccountRequest(string Password);
 
 public sealed class UploadProfilePhotoRequest
 {

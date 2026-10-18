@@ -12,17 +12,9 @@ public class User : BaseEntity
     public string MobileNumber { get; private set; } = string.Empty;
 
     /// <summary>
-    /// Null for accounts created via an external provider (Google) that have
-    /// never set a password.
+    /// Null once an account is deleted (it can no longer sign in).
     /// </summary>
     public string? PasswordHash { get; private set; }
-
-    /// <summary>
-    /// Google's stable per-account subject id, set once a Google sign-in has
-    /// been linked to this account. Null for accounts that have never used
-    /// Google sign-in.
-    /// </summary>
-    public string? GoogleId { get; private set; }
 
     public string? ProfileImageUrl { get; private set; }
 
@@ -37,6 +29,17 @@ public class User : BaseEntity
     public bool IsMobileVerified { get; private set; }
 
     public bool IsActive { get; private set; } = true;
+
+    /// <summary>
+    /// When the user ticked the age (18+) and Terms/Privacy checkboxes at
+    /// signup. Null for accounts created before consent was captured.
+    /// </summary>
+    public DateTime? ConsentAcceptedAt { get; private set; }
+
+    /// <summary>The Terms/Privacy version the user was shown and accepted.</summary>
+    public string? ConsentVersion { get; private set; }
+
+    public string? ConsentIpAddress { get; private set; }
 
     private User()
     {
@@ -79,6 +82,41 @@ public class User : BaseEntity
         MobileNumber = mobileNumber.Trim();
         PasswordHash = passwordHash;
         RoleId = roleId;
+    }
+
+    public void RecordConsent(string version, string? ipAddress)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+            throw new ArgumentException(
+                "Consent version is required.",
+                nameof(version));
+
+        ConsentAcceptedAt = DateTime.UtcNow;
+        ConsentVersion = version.Trim();
+        ConsentIpAddress = string.IsNullOrWhiteSpace(ipAddress)
+            ? null
+            : ipAddress.Trim();
+        MarkAsUpdated();
+    }
+
+    /// <summary>
+    /// Final step of user-initiated account deletion: strips every personal
+    /// field (the unique email/mobile are replaced by unreachable
+    /// placeholders), removes the ability to sign in, and marks the account
+    /// deleted. Ledger rows that reference this user are intentionally kept.
+    /// </summary>
+    public void AnonymizeForDeletion()
+    {
+        string suffix = Id.ToString("N");
+
+        FullName = "Deleted user";
+        Email = $"deleted-{suffix}@deleted.invalid";
+        MobileNumber = $"del-{suffix[..12]}";
+        PasswordHash = null;
+        ProfileImageUrl = null;
+        IsActive = false;
+        Status = UserStatus.Deleted;
+        MarkAsUpdated();
     }
 
     public void VerifyEmail()
@@ -163,67 +201,6 @@ public class User : BaseEntity
             ? null
             : profileImageUrl.Trim();
 
-        MarkAsUpdated();
-    }
-
-    /// <summary>
-    /// Creates a new account for a Google identity that has no matching
-    /// existing user. There is no password — <see cref="PasswordHash"/>
-    /// stays null — and the account is activated immediately since Google
-    /// has already verified the email address, skipping the normal
-    /// register-then-verify-OTP flow.
-    /// </summary>
-    public static User CreateFromGoogle(
-        string fullName,
-        string email,
-        string googleId,
-        Role role)
-    {
-        if (string.IsNullOrWhiteSpace(fullName))
-            throw new ArgumentException(
-                "Full name is required.",
-                nameof(fullName));
-
-        if (string.IsNullOrWhiteSpace(email))
-            throw new ArgumentException(
-                "Email is required.",
-                nameof(email));
-
-        if (string.IsNullOrWhiteSpace(googleId))
-            throw new ArgumentException(
-                "Google id is required.",
-                nameof(googleId));
-
-        ArgumentNullException.ThrowIfNull(role);
-
-        return new User
-        {
-            FullName = fullName.Trim(),
-            Email = email.Trim().ToLowerInvariant(),
-            MobileNumber = string.Empty,
-            PasswordHash = null,
-            GoogleId = googleId,
-            RoleId = role.Id,
-            Role = role,
-            Status = UserStatus.Active,
-            IsEmailVerified = true
-        };
-    }
-
-    /// <summary>
-    /// Links a Google identity to an existing (typically password-based)
-    /// account whose email matched a Google sign-in attempt. Does not touch
-    /// the existing password, so the account keeps working with either
-    /// method afterwards.
-    /// </summary>
-    public void LinkGoogleAccount(string googleId)
-    {
-        if (string.IsNullOrWhiteSpace(googleId))
-            throw new ArgumentException(
-                "Google id is required.",
-                nameof(googleId));
-
-        GoogleId = googleId;
         MarkAsUpdated();
     }
 }

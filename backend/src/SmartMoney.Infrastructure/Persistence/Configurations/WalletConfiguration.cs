@@ -8,7 +8,23 @@ public sealed class WalletConfiguration : IEntityTypeConfiguration<Wallet>
 {
     public void Configure(EntityTypeBuilder<Wallet> builder)
     {
-        builder.ToTable("Wallets");
+        builder.ToTable("Wallets", table =>
+        {
+            // Last line of defence: no code path may ever leave a wallet
+            // with negative money, whatever a handler does.
+            table.HasCheckConstraint(
+                "CK_Wallets_BalancesNonNegative",
+                "\"AvailableBalance\" >= 0 AND \"PendingBalance\" >= 0 " +
+                "AND \"HeldBalance\" >= 0");
+        });
+
+        // Postgres xmin as an optimistic-concurrency token: two requests that
+        // read the same wallet cannot both write it (the second gets a
+        // concurrency conflict instead of silently overwriting the first).
+        builder.Property<uint>("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
 
         builder.HasKey(x => x.Id);
 
@@ -16,6 +32,9 @@ public sealed class WalletConfiguration : IEntityTypeConfiguration<Wallet>
             .HasPrecision(18, 2);
 
         builder.Property(x => x.PendingBalance)
+            .HasPrecision(18, 2);
+
+        builder.Property(x => x.HeldBalance)
             .HasPrecision(18, 2);
 
         builder.Property(x => x.TotalEarned)

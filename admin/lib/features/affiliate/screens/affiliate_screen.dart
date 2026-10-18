@@ -113,7 +113,11 @@ class _AffiliateScreenState extends State<AffiliateScreen>
     return 'No ${statusWord}store mappings match "$_mappingSearch".';
   }
 
+  /// Monotonic token so a slow earlier response can't overwrite a later one.
+  int _loadToken = 0;
+
   Future<void> _load() async {
+    final token = ++_loadToken;
     setState(() => _state = ViewState.loading);
     try {
       final results = await Future.wait([
@@ -121,6 +125,7 @@ class _AffiliateScreenState extends State<AffiliateScreen>
         _affiliateService.listMappings(),
         _storeService.list(),
       ]);
+      if (!mounted || token != _loadToken) return;
       setState(() {
         _networks = results[0] as List<AdminAffiliateNetwork>;
         _mappings = results[1] as List<AdminStoreAffiliateMapping>;
@@ -128,6 +133,7 @@ class _AffiliateScreenState extends State<AffiliateScreen>
         _state = ViewState.success;
       });
     } on ApiException catch (error) {
+      if (!mounted || token != _loadToken) return;
       setState(() {
         _errorMessage = error.message;
         _state = ViewState.error;
@@ -279,15 +285,15 @@ class _AffiliateScreenState extends State<AffiliateScreen>
         else
           Expanded(
             child: AdminStickyTable(
-              columns: const ['Name', 'Code', 'Status', ''],
-              columnWidths: const [160, 120, 100, 70],
+              columns: const ['Name', 'Code', 'Status'],
+              columnWidths: const [160, 120, 100],
               columnAlignments: const [
                 Alignment.centerLeft,
                 Alignment.centerLeft,
                 Alignment.center,
-                Alignment.centerLeft,
               ],
               itemCount: _networks.length,
+              onRowTap: (index) => _editNetwork(_networks[index]),
               cellsBuilder: (context, index) {
                 final network = _networks[index];
 
@@ -297,10 +303,6 @@ class _AffiliateScreenState extends State<AffiliateScreen>
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: StatusBadge.active(network.isActive),
-                  ),
-                  TextButton(
-                    onPressed: () => _editNetwork(network),
-                    child: const Text('Edit'),
                   ),
                 ];
               },
@@ -351,17 +353,16 @@ class _AffiliateScreenState extends State<AffiliateScreen>
                 'Network',
                 'External merchant id',
                 'Status',
-                '',
               ],
-              columnWidths: const [160, 140, 200, 100, 70],
+              columnWidths: const [160, 140, 200, 100],
               columnAlignments: const [
                 Alignment.centerLeft,
                 Alignment.centerLeft,
                 Alignment.centerLeft,
                 Alignment.center,
-                Alignment.centerLeft,
               ],
               itemCount: filtered.length,
+              onRowTap: (index) => _editMapping(filtered[index]),
               cellsBuilder: (context, index) {
                 final mapping = filtered[index];
 
@@ -372,10 +373,6 @@ class _AffiliateScreenState extends State<AffiliateScreen>
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: StatusBadge.active(mapping.isActive),
-                  ),
-                  TextButton(
-                    onPressed: () => _editMapping(mapping),
-                    child: const Text('Edit'),
                   ),
                 ];
               },

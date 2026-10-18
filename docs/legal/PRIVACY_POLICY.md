@@ -1,48 +1,15 @@
-<!--
-TODO before publishing this policy publicly — items below could not be confirmed from the
-codebase or were left as placeholders per your instructions and MUST be finalized:
-
-1. Registered business/legal entity details (address, CIN/registration number if incorporated,
-   state of incorporation) — you confirmed "SmartMoney" is itself the business name to use;
-   add a registered office address and, if incorporated, the registration/CIN number.
-2. Contact emails: replace every [privacy@smartmoney.example], [support@smartmoney.example],
-   and the Grievance Officer block in Section 17 with real, monitored addresses and a real
-   named Grievance Officer (required under India's IT Rules, 2011 and the DPDP Act, 2023).
-3. "Effective Date" below — set this to the date you actually publish/enable the policy.
-4. Jurisdiction / governing law city-state (Section 17) — currently a placeholder.
-5. Section 4 (Wallet & Payout) and Section 7 (payout provider) are written prospectively:
-   as of this writing the codebase has no payout/withdrawal module, no UPI/bank/PAN fields,
-   and no integrated payment gateway (see docs/ROADMAP.md, "M5 — withdrawals"). Update these
-   sections with the actual provider name once that feature ships, and remove the
-   forward-looking language if launch scope changes.
-6. Section 7 confirms no Firebase, analytics, or crash-reporting SDK is currently integrated,
-   and no third-party SMS/OTP or payment gateway is integrated (OTP is currently email-based).
-   Update immediately if any of these are added — adding a new SDK without updating this
-   Policy is a compliance gap, not just a documentation one.
-7. Minimum age is set to 18 (Section 15), consistent with handling of financial/wallet data —
-   confirm this matches your actual eligibility rules.
-8. Data retention periods (Section 12) use common Indian financial/tax retention practice
-   (e.g., accounting records) as a placeholder range — confirm with your accountant/counsel.
-9. This policy is drafted for an Indian audience/jurisdiction (DPDP Act 2023, IT Act 2000 &
-   SPDI Rules 2011) based on signals in the product (PAN, UPI, INR cashback). If SmartMoney
-   also serves users in other countries (EU/UK/US), additional disclosures (GDPR/CCPA) would
-   be needed and are NOT included here.
-
-Have this reviewed by a lawyer qualified in Indian data protection law before publishing.
--->
-
 # SmartMoney Privacy Policy
 
-**Last updated:** 20 September 2026
-**Effective date:** [Effective Date]
+**Last updated:** 5 October 2026
+**Effective date:** 5 October 2026
 
 ## 1. Introduction
 
 SmartMoney ("**SmartMoney**", "**we**", "**us**", or "**our**") is an affiliate cashback platform. Through the SmartMoney mobile application and related services (together, the "**App**" or "**Service**"), users browse participating stores and offers, click through affiliate links to merchant websites, complete purchases on those merchant websites, and earn cashback once the merchant confirms and validates the transaction.
 
-This Policy is operated by **SmartMoney**, the owner and operator of the App.  [If SmartMoney later operates under a separate incorporated legal entity, that entity's registered name, address, and registration number should be added here.]
+This Policy is operated by **SmartMoney** (registered trade name: SMART MONEY), a sole proprietorship owned by **Rupankar De**, the owner and operator of the App. SmartMoney is registered under Gram Panchayat Trade Registration No. 528, issued on 1 September 2026 (valid for 2026–2029). SmartMoney is not currently incorporated as a separate company or LLP and has no CIN; if that changes, this Policy will be updated with the incorporated entity's registered name, address, and registration number.
 
-This Policy explains what information we collect, how we use and share it, how we protect it, and the choices and rights you have. By creating an account or using the App, you agree to the practices described in this Policy. If you do not agree, please do not use the App.
+This Policy explains what information we collect, how we use and share it, how we protect it, and the choices and rights you have. By creating an account or using the App, you agree to the practices described in this Policy, as well as to our [Terms of Service](TERMS_OF_SERVICE.md), which governs your use of the App more broadly (including the cashback and withdrawal rules referenced in Sections 4 and 13 below). If you do not agree, please do not use the App.
 
 ## 2. Information We Collect
 
@@ -50,11 +17,12 @@ We collect the following categories of information:
 
 - **Name** — the full name you provide when creating your account.
 - **Email address** — used for account identification, login, verification (OTP), and communication.
-- **Mobile number** — used for account identification and verification.
-- **Account/login information** — your password (stored in encrypted/hashed form, never in plain text), account status, and, if you sign in with Google, your Google account identifier used solely to authenticate you.
+- **Mobile number** — collected as contact information only. SmartMoney does not currently verify mobile numbers or use them for OTP purposes; account verification is performed via your email address only (see Section 7).
+- **Account/login information** — your password (stored in encrypted/hashed form, never in plain text) and account status.
 - **Profile information** — an optional profile photo you upload, stored via our cloud storage provider.
-- **Device information** — such as device model, operating system and version, and app version, collected to ensure the App functions correctly and securely on your device.
+- **Technical information** — details that your device and the App send automatically with each request, such as the type of software making the request, used to keep the App working correctly and securely.
 - **IP address** — collected automatically by our servers as part of standard request logging, for security and fraud-prevention purposes.
+- **Consent record** — when you create an account, we record that you confirmed you are 18 or over and accepted the Terms of Service and this Privacy Policy, together with the version of the documents, the date and time, and your IP address, as evidence of your consent.
 - **App usage data** — basic operational and diagnostic information generated by your use of the App (e.g., screens accessed, actions taken, error logs) used to operate, secure, and improve the Service. As of this Policy, SmartMoney does not use a dedicated third-party analytics or crash-reporting SDK (see Section 7); if that changes, this Policy will be updated.
 - **Any other information you choose to provide**, such as content of support requests you send us.
 
@@ -81,16 +49,16 @@ When SmartMoney's withdrawal feature is available, processing a withdrawal will 
 - **PAN or other tax information**, where required for tax reporting or compliance with applicable withdrawal thresholds
 - **Withdrawal/payout history** — a record of your withdrawal requests and their status
 
-We only collect the payout details relevant to the payout method you select, and only at the time you request a withdrawal. This section will be updated with the name of our payout provider once that integration is live (see Section 7).
+We only collect the payout details relevant to the payout method you select, and only at the time you request a withdrawal. Once SmartMoney's withdrawal feature is live, these payout details will be processed through **Cashfree**, our payout provider (see Section 7).
 
 ## 5. Affiliate Tracking
 
 SmartMoney earns commission from merchants when you complete a purchase after clicking through an affiliate link in the App, and we share part of that commission with you as cashback. To make this possible, we use:
 
 - **Affiliate links** generated for each store/offer you click on.
-- **Cuelinks tracking** — SmartMoney's affiliate network partner, used to route your click to the merchant and to attribute the resulting purchase back to your click.
+- **Affiliate network tracking** — provided by our affiliate network partner(s) (currently including **Cuelinks**), used to route your click to the merchant and to attribute the resulting purchase back to your click.
 - **Click/transaction attribution identifiers** — a tracking reference and redirect token, unique to each click, used to match a merchant-confirmed purchase to your account.
-- **SubIDs or similar tracking identifiers** passed to Cuelinks and, in turn, to the merchant, so that a purchase can be correctly attributed to you for cashback purposes.
+- **SubIDs or similar tracking identifiers** passed to our affiliate network partner(s) and, in turn, to the merchant, so that a purchase can be correctly attributed to you for cashback purposes.
 
 This attribution data is what allows us to calculate and credit cashback to your wallet; without it, cashback could not be verified.
 
@@ -109,14 +77,15 @@ We use the information described above to:
 - Analyze usage and improve the App's features and reliability
 - Comply with legal, tax, and regulatory obligations
 
+We send you transactional messages about your account, cashback, and withdrawals by email or in-app message. SmartMoney does not currently send promotional or marketing communications, and does not use SMS, WhatsApp, or push notifications. If we begin to, we will update this Policy and obtain your consent beforehand, and you will be able to opt out of promotional communications at any time.
+
 ## 7. Third-Party Services
 
 We work with the following third parties to operate SmartMoney:
 
-- **Cuelinks** — our affiliate network partner, used to generate affiliate links, route clicks to merchants, and attribute purchases for cashback calculation. See Section 5.
-- **Google Sign-In** — an optional authentication method; if you use it, Google shares your basic account identifier with us to verify your identity. We do not receive your Google password.
-- **Supabase** — our cloud storage provider, used to store uploaded content such as profile photos and catalogue media.
-- **Payment/payout provider** — as of this Policy, withdrawals are processed manually and no automated third-party payment gateway is integrated. This section will be updated to name the specific provider once an automated payout integration is live.
+- **Affiliate network partner(s)** — currently including **Cuelinks**, used to generate affiliate links, route clicks to merchants, and attribute purchases for cashback calculation (see Section 5). SmartMoney's platform is built to support additional affiliate network partners over time; this Policy will be updated to name any newly added partner.
+- **Microsoft Azure** — our cloud hosting, database, and storage provider (Hyderabad, India region), used to run the App's backend, store account and transaction data, and store uploaded content such as profile photos and catalogue media.
+- **Cashfree** — our payout provider, used solely to process withdrawal payouts to your UPI ID or bank account once SmartMoney's withdrawal feature is live. Cashfree is never used to collect payments from you.
 
 As of this Policy, SmartMoney does **not** integrate Firebase, third-party analytics, crash-reporting SDKs, or third-party SMS/OTP providers (verification codes are currently sent by email). If we integrate any such service in the future, we will update this Policy before doing so.
 
@@ -124,9 +93,9 @@ As of this Policy, SmartMoney does **not** integrate Firebase, third-party analy
 
 We share limited information only where necessary to operate the Service:
 
-- **With Cuelinks and, through it, with merchants** — click and attribution identifiers (Section 5) needed to validate your purchase and calculate cashback. We do not share your name, email, or mobile number with merchants for this purpose unless a specific merchant checkout requires it directly from you.
-- **With our service providers** (e.g., Supabase for file storage) — only the information needed for them to perform that specific function on our behalf, under confidentiality and data-protection obligations.
-- **With payout providers**, once integrated — the payout details (Section 4) needed to send you your cashback.
+- **With our affiliate network partner(s) (currently Cuelinks) and, through them, with merchants** — click and attribution identifiers (Section 5) needed to validate your purchase and calculate cashback. We do not share your name, email, or mobile number with merchants for this purpose unless a specific merchant checkout requires it directly from you.
+- **With our service providers** (e.g., Microsoft Azure for hosting, database, and file storage) — only the information needed for them to perform that specific function on our behalf, under confidentiality and data-protection obligations.
+- **With Cashfree**, our payout provider, once SmartMoney's withdrawal feature is live — the payout details (Section 4) needed to send you your cashback.
 - **With law enforcement or regulators** — where required by applicable law, legal process, or to protect the rights, property, or safety of SmartMoney, our users, or others.
 - **In connection with a business transaction** — such as a merger, acquisition, or asset sale, subject to standard confidentiality protections.
 
@@ -146,7 +115,7 @@ We encourage you to review the privacy policy of any merchant website before mak
 We use the following tracking mechanisms:
 
 - **Affiliate tracking identifiers** — tracking references, redirect tokens, and tracked URLs (Section 5), used to attribute purchases made after you click through the App.
-- **Device identifiers** — used for security, fraud prevention, and to keep you signed in.
+- **Session tokens** — used to keep you signed in and to protect your account.
 - **Cookies** — if you access any SmartMoney web-based property (e.g., an admin or web interface), that property may use cookies or similar technologies for session management and security. The SmartMoney mobile app itself does not use browser cookies.
 - **Analytics technologies** — as noted in Section 7, we do not currently use a dedicated third-party analytics SDK. Any basic usage logging we perform is for operating and securing the Service.
 
@@ -157,30 +126,31 @@ We take reasonable technical and organizational measures to protect your informa
 - Storing passwords in hashed (encrypted) form — we never store your password in plain text.
 - Using token-based authentication (with short-lived access tokens and refresh tokens) to secure your session.
 - Encrypting data in transit using industry-standard protocols (HTTPS/TLS).
-- Storing account and transaction data in an access-controlled database, with uploaded files (e.g., profile photos) stored via our cloud storage provider, Supabase.
+- Storing account and transaction data in an access-controlled database hosted on Microsoft Azure (Hyderabad, India region), with uploaded files (e.g., profile photos) stored via Azure's cloud storage.
 - Restricting internal access to personal data to personnel who need it to perform their role (e.g., customer support, fraud review).
 
 No method of transmission or storage is 100% secure, and we cannot guarantee absolute security. If we become aware of a data breach affecting your personal data, we will notify you and relevant authorities as required by applicable law.
 
 ## 12. Data Retention
 
-We retain your account, transaction, and cashback data for as long as your account is active and as needed to provide the Service. After you close your account or request deletion, we retain certain data only as long as necessary to:
+We retain your account, transaction, and cashback data for as long as your account is active and as needed to provide the Service. After you close your account or request deletion, we retain certain data for up to **8 years** from the date of closure, where necessary to:
 
 - Resolve any pending cashback, disputes, or withdrawal requests;
-- Comply with tax, accounting, and other legal or regulatory record-keeping requirements (commonly several years under applicable Indian tax/accounting law); and
+- Comply with tax, accounting, and other legal or regulatory record-keeping requirements; and
 - Prevent fraud and enforce our terms.
 
-Once these purposes no longer apply, we delete or anonymize the remaining data.
+Once these purposes no longer apply, or the 8-year period has elapsed, whichever is sooner, we delete or anonymize the remaining data.
 
 ## 13. Account & Data Deletion
 
-You may request deletion of your SmartMoney account by contacting us at [privacy@smartmoney.example].
+You can delete your SmartMoney account in the App by opening your profile, choosing Delete account, and confirming your password. You can also ask us to delete it by contacting admin@smart-money.in.
 
 When you request deletion:
 
-- Any **confirmed but unpaid cashback or wallet balance** should be withdrawn before you request deletion. If a balance remains, we will [contact you to complete the withdrawal / treat the balance as forfeited], as described in our Terms of Service.
+- Any **confirmed but unpaid cashback or wallet balance** must be withdrawn before your account can be deleted. If your balance is at or above the ₹250 minimum withdrawal amount, we will not process a deletion request while it remains; we will ask you to withdraw it first. If it is below ₹250, we will make a one-time exception and pay it out to you when you close your account, and if it is too small to cover your share of the payout fee it will be cleared on closure. Details are in our [Terms of Service](TERMS_OF_SERVICE.md).
 - Any **pending (unconfirmed) cashback** tied to an in-progress merchant transaction may be resolved or forfeited, since it cannot be verified after account closure.
-- We will delete or anonymize your personal data, except for information we are legally required to retain (e.g., transaction and payout records needed for tax/accounting purposes, or records needed to investigate fraud), as described in Section 12.
+- When your account is deleted, we delete your profile photo, replace your name, email address and mobile number with anonymised values, and sign you out of every device. We keep a restricted copy of your original name, email address and mobile number for 90 days, visible only to senior administrators, for fraud checks and open disputes, and then delete it. Wallet and transaction records are kept for the period in Section 12, linked only to the anonymised account.
+- We will delete or anonymize your other personal data, except for information we are legally required to retain (e.g., transaction and payout records needed for tax/accounting purposes, or records needed to investigate fraud), as described in Section 12.
 
 ## 14. User Rights
 
@@ -189,8 +159,10 @@ Subject to applicable law (including India's Digital Personal Data Protection Ac
 - **Access** the personal data we hold about you
 - **Correct** inaccurate or incomplete personal data
 - **Delete** your personal data, subject to the limitations in Sections 12–13
-- **Withdraw consent** you previously gave, where our processing relies on consent (e.g., optional Google Sign-In), without affecting the lawfulness of processing before withdrawal
+- **Withdraw consent** you previously gave, where our processing relies on consent (e.g., an optional profile photo), without affecting the lawfulness of processing before withdrawal
+- **Nominate** another individual to exercise these rights on your behalf in the event of your death or incapacity, in the manner prescribed under the Digital Personal Data Protection Act, 2023
 - **Raise a grievance** with our Grievance Officer (Section 17) if you believe your data has been misused or your rights have not been honored
+- **Escalate to the Data Protection Board of India** if you are not satisfied with how your grievance is resolved by our Grievance Officer
 - Receive a **response within a reasonable timeframe**, as required by applicable law
 
 To exercise these rights, contact us using the details in Section 17. We may need to verify your identity before acting on your request.
@@ -205,16 +177,16 @@ We may update this Policy from time to time to reflect changes in our practices,
 
 ## 17. Contact / Grievance
 
-**Business/legal entity name:** SmartMoney [add registered legal entity name and registered address, if applicable]
+**Business/legal entity name:** SmartMoney (registered trade name: SMART MONEY), a sole proprietorship owned by Rupankar De, registered under Gram Panchayat Trade Registration No. 528 (registered 1 September 2026)
 
-**Privacy contact email:** [privacy@smartmoney.example]
+**Privacy contact email:** admin@smart-money.in
 
 **Grievance Officer:**
 In accordance with the Information Technology Act, 2000 and rules made thereunder, and the Digital Personal Data Protection Act, 2023, the following Grievance Officer can be contacted with any complaints regarding the processing of your personal data:
 
-- Name: [Grievance Officer Name]
-- Designation: [Designation]
-- Email: [grievance@smartmoney.example]
-- Address: [Registered Office Address]
+- Name: Rupankar De
+- Designation: Founder
+- Email: admin@smart-money.in
+- Address: Kolkata, West Bengal
 
-This Policy is governed by the laws of India. Any disputes arising under this Policy shall be subject to the exclusive jurisdiction of the courts of [City, State].
+This Policy is governed by the laws of India. Any disputes arising under this Policy shall be subject to the exclusive jurisdiction of the courts of **Kolkata, West Bengal**.

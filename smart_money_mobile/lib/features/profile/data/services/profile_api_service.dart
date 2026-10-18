@@ -7,7 +7,8 @@ import 'package:http_parser/http_parser.dart';
 
 import '../../../../core/network/api_config.dart';
 import '../../../../core/network/api_exception.dart';
-import '../../../auth/data/models/refresh_token_request.dart';
+import '../../../../core/network/network_guard.dart';
+import '../../../../core/network/token_refresher.dart';
 import '../../../auth/data/services/auth_api_service.dart';
 import '../../../auth/data/services/token_storage_service.dart';
 import '../models/profile_response.dart';
@@ -35,10 +36,8 @@ class ProfileApiService {
 
   Future<ProfileResponse> getProfile() async {
     final response = await _sendAuthorizedRequest(
-      (headers) => _client.get(
-        Uri.parse('$baseUrl/api/profile'),
-        headers: headers,
-      ),
+      (headers) =>
+          _client.get(Uri.parse('$baseUrl/api/profile'), headers: headers),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -82,21 +81,66 @@ class ProfileApiService {
     return ProfileResponse.fromJson(decodedBody);
   }
 
-  Future<void> changePassword(String newPassword) async {
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
     final response = await _sendAuthorizedRequest(
       (headers) => _client.put(
         Uri.parse('$baseUrl/api/profile/change-password'),
         headers: headers,
-        body: jsonEncode({'newPassword': newPassword}),
+        body: jsonEncode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
       ),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
-        'Password update failed. Please try again.',
+        _errorMessage(response, 'Password update failed. Please try again.'),
         statusCode: response.statusCode,
       );
     }
+  }
+
+  /// Permanently deletes the signed-in account after re-checking the
+  /// password. The backend answers 400 for a wrong password and 409 while
+  /// the wallet still holds withdrawable money; both carry a user-safe
+  /// `message`, which is surfaced as the [ApiException] message.
+  Future<void> deleteAccount(String password) async {
+    final response = await _sendAuthorizedRequest(
+      (headers) => _client.post(
+        Uri.parse('$baseUrl/api/profile/delete-account'),
+        headers: headers,
+        body: jsonEncode({'password': password}),
+      ),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        _errorMessage(
+          response,
+          'Unable to delete your account. Please try again.',
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  String _errorMessage(http.Response response, String fallback) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message;
+        }
+      }
+    } catch (_) {
+      // Fall through to the generic message.
+    }
+    return fallback;
   }
 
   Future<ProfileResponse> uploadProfilePhoto({
@@ -156,46 +200,29 @@ class ProfileApiService {
   Future<http.Response> _sendAuthorizedRequest(
     Future<http.Response> Function(Map<String, String> headers) send,
   ) async {
-    final response = await send(await _authorizedHeaders());
+    final response = await guardNetwork(
+      () async => send(await _authorizedHeaders()),
+    );
 
     if (response.statusCode != 401) {
       return response;
     }
 
-    final refreshed = await _refreshAccessToken();
+    final outcome = await TokenRefresher.refresh(
+      tokenStorage: _tokenStorageService,
+      authApi: _authApiService,
+    );
 
-    if (!refreshed) {
-      // Distinguishes "session is truly dead" (revoked/expired refresh
-      // token) from any other failure, so callers can prompt a re-login
-      // instead of showing a generic, unexplained error.
-      throw const ApiException(_sessionExpiredMessage, statusCode: 401);
-    }
-
-    return send(await _authorizedHeaders());
-  }
-
-  Future<bool> _refreshAccessToken() async {
-    final storedRefreshToken = await _tokenStorageService.getRefreshToken();
-
-    if (storedRefreshToken == null || storedRefreshToken.isEmpty) {
-      return false;
-    }
-
-    try {
-      final response = await _authApiService.refreshToken(
-        RefreshTokenRequest(refreshToken: storedRefreshToken),
-      );
-
-      await _tokenStorageService.saveTokens(
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-        accessTokenExpiresAt: response.accessTokenExpiresAt,
-      );
-
-      return true;
-    } catch (_) {
-      await _tokenStorageService.clearTokens();
-      return false;
+    switch (outcome) {
+      case RefreshOutcome.refreshed:
+        return guardNetwork(() async => send(await _authorizedHeaders()));
+      case RefreshOutcome.rejected:
+        // Distinguishes "session is truly dead" (revoked/expired refresh
+        // token) from any other failure, so callers can prompt a re-login
+        // instead of showing a generic, unexplained error.
+        throw const ApiException(_sessionExpiredMessage, statusCode: 401);
+      case RefreshOutcome.transientFailure:
+        throw const ApiException(kNetworkErrorMessage);
     }
   }
 

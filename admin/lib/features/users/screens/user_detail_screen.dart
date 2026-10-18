@@ -145,27 +145,28 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       backgroundColor: AdminColors.bgPrimary,
       body: AdminPageScaffold(
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back),
-                tooltip: 'Back to users',
-              ),
-              const SizedBox(width: AdminSpacing.sm),
-              const Expanded(
-                child: AdminPageHeader(
-                  title: 'User details',
-                  description: 'Profile, cashback summary, and admin actions.',
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Back to users',
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AdminSpacing.lg),
-          Expanded(child: _buildBody()),
-        ],
+                const SizedBox(width: AdminSpacing.sm),
+                const Expanded(
+                  child: AdminPageHeader(
+                    title: 'User details',
+                    description:
+                        'Profile, cashback summary, and admin actions.',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AdminSpacing.lg),
+            Expanded(child: _buildBody()),
+          ],
         ),
       ),
     );
@@ -189,6 +190,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildProfileCard(user),
+        if (user.isDeleted) ...[
+          const SizedBox(height: AdminSpacing.md),
+          _buildArchivedCard(user),
+        ],
         const SizedBox(height: AdminSpacing.xl),
         Text(
           'Lifetime cashback',
@@ -212,6 +217,54 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     );
   }
 
+  /// Shown for a self-deleted user: the original details held in the
+  /// restricted archive, and when they will be erased.
+  Widget _buildArchivedCard(AdminUserDetail user) {
+    final archive = user.archivedDetails;
+
+    return Container(
+      padding: const EdgeInsets.all(AdminSpacing.lg),
+      decoration: BoxDecoration(
+        color: AdminColors.surface,
+        borderRadius: BorderRadius.circular(AdminRadius.card),
+        border: Border.all(color: AdminColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Original details (restricted)',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: AdminSpacing.sm),
+          if (archive == null)
+            const Text(
+              'The retention period has passed and the original details '
+              'have been erased.',
+              style: TextStyle(color: AdminColors.textMuted, fontSize: 13),
+            )
+          else ...[
+            Text(archive.fullName.isEmpty ? '—' : archive.fullName),
+            const SizedBox(height: 2),
+            Text(archive.email),
+            const SizedBox(height: 2),
+            Text(archive.mobileNumber),
+            const SizedBox(height: AdminSpacing.sm),
+            Text(
+              'Deleted ${_formatDate(archive.deletedAt)} · retained until '
+              '${_formatDate(archive.purgeAfter)}. Use only for fraud checks '
+              'and open disputes.',
+              style: const TextStyle(
+                color: AdminColors.textMuted,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileCard(AdminUserDetail user) {
     return Container(
       padding: const EdgeInsets.all(AdminSpacing.lg),
@@ -228,7 +281,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          Text(user.email, style: const TextStyle(color: AdminColors.textMuted)),
+          Text(
+            user.email,
+            style: const TextStyle(color: AdminColors.textMuted),
+          ),
           const SizedBox(height: AdminSpacing.sm),
           Text(
             'Member since ${_formatDate(user.createdAt)}',
@@ -246,7 +302,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     : AdminColors.textMuted,
               ),
               const SizedBox(width: AdminSpacing.sm),
-              StatusBadge.active(user.isActive),
+              user.isDeleted
+                  ? StatusBadge.deleted()
+                  : StatusBadge.active(user.isActive),
             ],
           ),
         ],
@@ -340,11 +398,19 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
+          else if (user.isDeleted)
+            const Text(
+              'This account was deleted by the user. It cannot be activated '
+              'or deactivated.',
+              style: TextStyle(color: AdminColors.textMuted, fontSize: 13),
+            )
           else
             OutlinedButton.icon(
               onPressed: _toggleActive,
               icon: Icon(
-                user.isActive ? Icons.block_outlined : Icons.check_circle_outline,
+                user.isActive
+                    ? Icons.block_outlined
+                    : Icons.check_circle_outline,
               ),
               label: Text(user.isActive ? 'Deactivate user' : 'Activate user'),
               style: OutlinedButton.styleFrom(
@@ -353,37 +419,41 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     : AdminColors.success,
               ),
             ),
-          const SizedBox(height: AdminSpacing.xl),
-          Text(
-            'Role',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-          ),
-          const SizedBox(height: AdminSpacing.sm),
-          if (_changingRole)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (user.role == 'SuperAdmin')
-            const Text(
-              'SuperAdmin is config-seeded only and cannot be changed here.',
-              style: TextStyle(color: AdminColors.textMuted, fontSize: 12),
-            )
-          else if (user.role != 'Admin')
-            FilledButton(
-              onPressed: () => _changeRole('Admin'),
-              child: const Text('Grant admin'),
-            )
-          else
-            OutlinedButton(
-              onPressed: () => _changeRole('Customer'),
-              style: OutlinedButton.styleFrom(foregroundColor: AdminColors.danger),
-              child: const Text('Revoke admin'),
+          if (!user.isDeleted) ...[
+            const SizedBox(height: AdminSpacing.xl),
+            Text(
+              'Role',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             ),
+            const SizedBox(height: AdminSpacing.sm),
+            if (_changingRole)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else if (user.role == 'SuperAdmin')
+              const Text(
+                'SuperAdmin is config-seeded only and cannot be changed here.',
+                style: TextStyle(color: AdminColors.textMuted, fontSize: 12),
+              )
+            else if (user.role != 'Admin')
+              FilledButton(
+                onPressed: () => _changeRole('Admin'),
+                child: const Text('Grant admin'),
+              )
+            else
+              OutlinedButton(
+                onPressed: () => _changeRole('Customer'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AdminColors.danger,
+                ),
+                child: const Text('Revoke admin'),
+              ),
+          ],
         ],
       ),
     );

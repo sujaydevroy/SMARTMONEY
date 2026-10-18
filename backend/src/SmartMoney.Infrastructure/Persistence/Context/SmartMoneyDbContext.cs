@@ -21,6 +21,9 @@ public sealed class SmartMoneyDbContext : DbContext, IUnitOfWork
     public DbSet<Cashback> Cashbacks => Set<Cashback>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<DeletedUserArchive> DeletedUserArchives
+        => Set<DeletedUserArchive>();
     public DbSet<EmailVerificationOtp> EmailVerificationOtps
     => Set<EmailVerificationOtp>();
 
@@ -53,6 +56,27 @@ public sealed class SmartMoneyDbContext : DbContext, IUnitOfWork
     public DbSet<CashbackRateOverride> CashbackRateOverrides => Set<CashbackRateOverride>();
 
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
+
+    public DbSet<CashbackEvent> CashbackEvents => Set<CashbackEvent>();
+
+    public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
+
+    /// <summary>
+    /// Turns a lost optimistic-concurrency race (Wallets and Cashbacks carry a
+    /// row-version token) into a domain exception the API can map to 409.
+    /// </summary>
+    public override async Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrencyConflictException(exception);
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

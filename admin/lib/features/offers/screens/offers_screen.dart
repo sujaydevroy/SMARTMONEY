@@ -116,19 +116,25 @@ class _OffersScreenState extends State<OffersScreen> {
     return 'No ${statusWord}offers match "$_search".';
   }
 
+  /// Monotonic token so a slow earlier response can't overwrite a later one.
+  int _loadToken = 0;
+
   Future<void> _load() async {
+    final token = ++_loadToken;
     setState(() => _state = ViewState.loading);
     try {
       final results = await Future.wait([
         _offerService.list(),
         _storeService.list(),
       ]);
+      if (!mounted || token != _loadToken) return;
       setState(() {
         _offers = results[0] as List<AdminOffer>;
         _stores = results[1] as List<AdminStore>;
         _state = _offers.isEmpty ? ViewState.empty : ViewState.success;
       });
     } on ApiException catch (error) {
+      if (!mounted || token != _loadToken) return;
       setState(() {
         _errorMessage = error.message;
         _state = ViewState.error;
@@ -283,9 +289,8 @@ class _OffersScreenState extends State<OffersScreen> {
             'Cashback',
             'Featured',
             'Status',
-            '',
           ],
-          columnWidths: const [200, 140, 100, 140, 90, 100, 70],
+          columnWidths: const [200, 140, 100, 140, 90, 100],
           columnAlignments: const [
             Alignment.centerLeft,
             Alignment.centerLeft,
@@ -293,9 +298,9 @@ class _OffersScreenState extends State<OffersScreen> {
             Alignment.centerLeft,
             Alignment.center,
             Alignment.center,
-            Alignment.centerLeft,
           ],
           itemCount: filtered.length,
+          onRowTap: (index) => _edit(filtered[index]),
           cellsBuilder: (context, index) {
             final offer = filtered[index];
 
@@ -326,10 +331,6 @@ class _OffersScreenState extends State<OffersScreen> {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: StatusBadge.active(offer.isActive),
-              ),
-              TextButton(
-                onPressed: () => _edit(offer),
-                child: const Text('Edit'),
               ),
             ];
           },
